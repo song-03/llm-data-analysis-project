@@ -4,7 +4,7 @@
 - 이름: 유은송
 - GitHub ID: song-03
 - 작성일: 2026.10.03.
-- 최종 제출 URL:
+- 최종 제출 URL: https://github.com/song-03/llm-data-analysis-project/blob/main/01_proposal/01_proposal.md
 
 
 ## 1. 프로젝트 주제
