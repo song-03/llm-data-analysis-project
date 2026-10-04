@@ -114,6 +114,7 @@
 | 성분 B | 1 | 0 | DUR-only | 1 | 약물군 B |
 | 성분 C | 0 | 1 | Beers-only | 1 | 약물군 C |
 | 성분 D | 0 | 1 | Beers-only | 0 | 약물군 D |
+
 (포함된 경우를 1 포함되지 않은 경우를 0 -> 이 값으로 공통, DUR-only, Beers-only로 구분하기)
 
 4. 사용량 자료 구성
@@ -127,84 +128,84 @@
 ## 6. 예상 분석 방법
 
 1. 데이터 전처리
-- API로 받은 자료는 `data/raw/`에, 수작업으로 만든 자료는 `data/external/`에 보존한다. 수집일, source URL, credential을 제외한 request parameter, source version, row count를 함께 기록한다.
-- 변환 전 required column, data type, categorical value, date format을 확인하고, column/source별 결측과 duplicate를 점검한다.
-- 성분명은 띄어쓰기, 대문자, 동의어, salt form을 문서화된 mapping table로 정규화한다. 복합 성분은 각 구성 성분을 확인할 수 있도록 별도로 정리하며, 약물 계열 비교를 위해 ATC 분류를 연결하고 사용한 분류 기준과 버전을 기록한다.
-- Beers entry의 route, dose, duration, indication, treatment initiation, exception 조건은 별도 field로 유지한다.
-- 모든 merge 전 key uniqueness와 예상 관계(1:1, 1:N, N:M)를 확인하고, join 전후 row count와 unmatched-key count를 비교한다. Set membership에 영향을 미치는 mapping과 모호한 1:N mapping은 수작업으로 재검토한다.
-- `PROHBT_CONTENT` 결측, mapping 실패 등은 임의로 추정하거나 0으로 대체하지 않고 상태를 그대로 기록한다. Claim count의 음수, 정수가 아닌 값은 invalid로 처리하고, 극단값은 원자료와 대조한 뒤 판단한다.
+    - API로 받은 자료는 `data/raw/`에, 수작업으로 만든 자료는 `data/external/`에 보존한다. 수집일, source URL, credential을 제외한 request parameter, source version, row count를 함께 기록한다.
+    - 변환 전 required column, data type, categorical value, date format을 확인하고, column/source별 결측과 duplicate를 점검한다.
+    - 성분명은 띄어쓰기, 대문자, 동의어, salt form을 문서화된 mapping table로 정규화한다. 복합 성분은 각 구성 성분을 확인할 수 있도록 별도로 정리하며, 약물 계열 비교를 위해 ATC 분류를 연결하고 사용한 분류 기준과 버전을 기록한다.
+    - Beers entry의 route, dose, duration, indication, treatment initiation, exception 조건은 별도 field로 유지한다.
+    - 모든 merge 전 key uniqueness와 예상 관계(1:1, 1:N, N:M)를 확인하고, join 전후 row count와 unmatched-key count를 비교한다. Set membership에 영향을 미치는 mapping과 모호한 1:N mapping은 수작업으로 재검토한다.
+    - `PROHBT_CONTENT` 결측, mapping 실패 등은 임의로 추정하거나 0으로 대체하지 않고 상태를 그대로 기록한다. Claim count의 음수, 정수가 아닌 값은 invalid로 처리하고, 극단값은 원자료와 대조한 뒤 판단한다.
 
 2. Q1 분석
-`normalized_ingredient`와 ATC level-4 수준에서 Python set operation을 이용해 `intersection`, `DUR_only`, `Beers_only`를 계산하고, 두 수준에서 각각 Jaccard similarity를 산출한다. (J(A, B) = |A intersection B| / |A union B| )
-결과는 각 set의 크기와 성분 목록, ATC level-4 class 분포로 정리한다. Ingredient membership은 벤다이어그램, class 분포는 막대그래프로 요약한다.
+    `normalized_ingredient`와 ATC level-4 수준에서 Python set operation을 이용해 `intersection`, `DUR_only`, `Beers_only`를 계산하고, 두 수준에서 각각 Jaccard similarity를 산출한다. (J(A, B) = |A intersection B| / |A union B| )
+    결과는 각 set의 크기와 성분 목록, ATC level-4 class 분포로 정리한다. Ingredient membership은 벤다이어그램, class 분포는 막대그래프로 요약한다.
 
-3. Q2 분석 
-Q1에서 확인된 Beers-only 성분의 국내 품목허가, 유통 상태와 HIRA ingredient code mapping을 먼저 확인한다. 분석 가능한 성분에 대해 가장 최근의 완전한 12개월 동안 월별 전국 `claim_count`를 합산하고, 관측 가능한 12개월 총계가 큰 순서로 정리한다. 상위 10개 성분과 ATC level-4 class를 표와 horizontal bar chart로 나타낸다.
+3. Q2 분석
+   Q1에서 확인된 Beers-only 성분의 국내 품목허가, 유통 상태와 HIRA ingredient code mapping을 먼저 확인한다. 분석 가능한 성분에 대해 가장 최근의 완전한 12개월 동안 월별 전국 `claim_count`를 합산하고, 관측 가능한 12개월 총계가 큰 순서로 정리한다. 상위 10개 성분과 ATC level-4 class를 표와 horizontal bar chart로 나타낸다.
 
-4. Q3 분석
-각 DUR-only 및 Beers-only 항목을 보고 다음과 같은 분류로 나눈다.
-- 국내 품목허가 여부 차이
-- 동일 pharmacological class 안에서 포함하는 ingredient 범위 차이
-- route, dose, duration, indication, treatment initiation, exception 등의 적용 조건 차이
-- 기타
+5. Q3 분석
+    각 DUR-only 및 Beers-only 항목을 보고 다음과 같은 분류로 나눈다.
+    - 국내 품목허가 여부 차이
+    - 동일 pharmacological class 안에서 포함하는 ingredient 범위 차이
+    - route, dose, duration, indication, treatment initiation, exception 등의 적용 조건 차이
+    - 기타
 
-분류 기준은 실제 coding 전에 decision rule로 문서화한다. 결과는 불일치 유형별 빈도표, 필요한 경우 유형 간 교차표, 전체 coded discordance table, 그리고 근거를 포함한 대표 사례로 나타낸다. (Beers criteria의 evidence quality나 recommendation 강도는 보조 정보로 제시)
+    분류 기준은 실제 coding 전에 decision rule로 문서화한다. 결과는 불일치 유형별 빈도표, 필요한 경우 유형 간 교차표, 전체 coded discordance table, 그리고 근거를 포함한 대표 사례로 나타낸다. (Beers criteria의 evidence quality나 recommendation 강도는 보조 정보로 제시)
 
 5. 검증
 
-분석 결과가 원자료와 일치하는지 확인하고, 다른 방법으로 한 번 더 검토한다.
-
-- Q1: DUR과 Beers Criteria의 공통 성분, DUR에만 포함된 성분, Beers에만 포함된 성분의 목록과 개수를 확인하고 약물 계열별 분포 결과와 비교한다.
-- Q2: HIRA에서 확인한 월별 사용량 원자료와 12개월 합산 결과를 비교하여 계산이 올바른지 확인한다.
-- Q3: 불일치 항목을 어떤 기준으로 분류했는지 기록하고, 주요 사례를 원래 DUR 및 Beers Criteria 자료와 다시 비교한다.
-
-구체적인 검증 방법은 다음과 같다.
-
-1. DUR API에서 수집한 자료 중 일부를 식품의약품안전처의 의약품 정보와 직접 비교한다.
-2. 직접 입력한 Beers Criteria Table 2의 내용을 원문 PDF와 다시 비교한다.
-3. 성분명과 ATC 분류를 연결한 결과 중 분석 결과에 영향을 주는 항목과 연결이 불확실한 항목을 직접 확인한다.
-4. Beers-only 성분의 국내 유통 여부 중 일부를 식품의약품안전처 의약품 정보에서 다시 확인한다.
-5. 사용량이 많은 상위 성분의 HIRA 조회 결과와 분석에서 계산한 값을 비교한다.
-6. 공통, 단독 성분 수와 연간 사용량 합계는 다른 집계 방법을 사용해 한 번 더 계산하여 결과가 같은지 확인한다.
-7. 연결되지 않은 성분, 결측값, 비공개 처리된 값 및 분석 과정에서 제외된 자료의 수를 기록한다.
+    분석 결과가 원자료와 일치하는지 확인하고, 다른 방법으로 한 번 더 검토한다.
+    
+    - Q1: DUR과 Beers Criteria의 공통 성분, DUR에만 포함된 성분, Beers에만 포함된 성분의 목록과 개수를 확인하고 약물 계열별 분포 결과와 비교한다.
+    - Q2: HIRA에서 확인한 월별 사용량 원자료와 12개월 합산 결과를 비교하여 계산이 올바른지 확인한다.
+    - Q3: 불일치 항목을 어떤 기준으로 분류했는지 기록하고, 주요 사례를 원래 DUR 및 Beers Criteria 자료와 다시 비교한다.
+    
+    구체적인 검증 방법은 다음과 같다.
+    
+    1. DUR API에서 수집한 자료 중 일부를 식품의약품안전처의 의약품 정보와 직접 비교한다.
+    2. 직접 입력한 Beers Criteria Table 2의 내용을 원문 PDF와 다시 비교한다.
+    3. 성분명과 ATC 분류를 연결한 결과 중 분석 결과에 영향을 주는 항목과 연결이 불확실한 항목을 직접 확인한다.
+    4. Beers-only 성분의 국내 유통 여부 중 일부를 식품의약품안전처 의약품 정보에서 다시 확인한다.
+    5. 사용량이 많은 상위 성분의 HIRA 조회 결과와 분석에서 계산한 값을 비교한다.
+    6. 공통, 단독 성분 수와 연간 사용량 합계는 다른 집계 방법을 사용해 한 번 더 계산하여 결과가 같은지 확인한다.
+    7. 연결되지 않은 성분, 결측값, 비공개 처리된 값 및 분석 과정에서 제외된 자료의 수를 기록한다.
 
 ## 7. 생성형 AI 활용 계획
-- API request, cleaning, join, summary, visualization을 위한 Python code 초안 작성
-- Q3 불일치 분류 기준 초안 제안
-- 검증이 필요한 ingredient-name synonym 후보 식별
-- 문서 구조와 표현 개선
-- validation test와 누락 가능 항목 제안
-
-하지만 내가 직접
-- 모든 code를 직접 실행하고 실제 input, intermediate table 및 output을 확인한다.
-- 계산 결과를 비교한다.
-- Ingredient mapping, ATC code, market status, criterion condition 및 source claim을 공식 자료 또는 source PDF와 대조하여 검증한다.
-- 근거가 부족한 임상적 또는 정책적 해석을 배제한다.
-- Missing, duplicate 또는 many-to-many record를 잘못 처리하는 code를 수정한다.
-최종 보고서에 주요 AI 제안 중 무엇을 채택/수정/보류했는지와 그 이유, 아직 남은 검증 사항을 기록한다.
+    - API request, cleaning, join, summary, visualization을 위한 Python code 초안 작성
+    - Q3 불일치 분류 기준 초안 제안
+    - 검증이 필요한 ingredient-name synonym 후보 식별
+    - 문서 구조와 표현 개선
+    - validation test와 누락 가능 항목 제안
+    
+    하지만 내가 직접
+    - 모든 code를 직접 실행하고 실제 input, intermediate table 및 output을 확인한다.
+    - 계산 결과를 비교한다.
+    - Ingredient mapping, ATC code, market status, criterion condition 및 source claim을 공식 자료 또는 source PDF와 대조하여 검증한다.
+    - 근거가 부족한 임상적 또는 정책적 해석을 배제한다.
+    - Missing, duplicate 또는 many-to-many record를 잘못 처리하는 code를 수정한다.
+    최종 보고서에 주요 AI 제안 중 무엇을 채택/수정/보류했는지와 그 이유, 아직 남은 검증 사항을 기록한다.
 
 ## 8. 향후 프로젝트 계획
 
-1. 데이터 수집
-DUR 노인주의 목록과 Beers Criteria 자료를 정리하고, 분석에 필요한 MFDS와 HIRA 데이터를 수집한다. 이후 같은 자료를 다시 확인할 수 있도록 각 자료의 조회일과 버전도 함께 기록한다.
-
-2. 데이터 전처리
-자료마다 다르게 표기된 성분명을 하나의 기준으로 통일한다. 중복된 값이나 결측값이 있는지도 확인한다. 약물 계열별 비교를 위해 각 성분에 ATC 분류를 연결한다.
-
-3. Q1. DUR과 Beers Criteria 비교
-두 기준에 공통으로 포함된 성분과 한쪽에만 포함된 성분을 구분한다. 이후 약물 계열별로 어떤 차이가 있는지 비교한다.
-
-4. 국내 유통 여부 및 사용량 데이터 수집
-Beers Criteria에만 포함된 성분이 국내에서 실제로 유통되는지 확인한다. 국내 유통이 확인된 성분은 HIRA 자료를 이용해 사용량 데이터를 수집한다.
-
-5. Q2. 국내 사용량 분석
-국내에서 유통되는 Beers-only 성분의 최근 12개월 사용량을 비교한다. 사용량이 많은 성분이 무엇인지 확인하고, 해당 성분이 어떤 약물 계열에 속하는지도 함께 살펴본다.
-
-6. Q3. 두 기준의 차이 분석
-DUR과 Beers Criteria에서 서로 일치하지 않는 항목을 확인한다. 이후 국내 유통 여부, 포함되는 성분의 범위, 투여경로, 용량, 투여기간 등 적용 조건의 차이를 중심으로 그 이유를 정리한다.
-
-7. 결과 검증 및 최종 정리
-주요 분석 결과를 원자료와 다시 비교해 오류가 없는지 확인한다. 이후 분석 결과와 그래프, 표를 정리하고 결과에 대한 해석과 한계를 함께 작성한다.
+    1. 데이터 수집
+    DUR 노인주의 목록과 Beers Criteria 자료를 정리하고, 분석에 필요한 MFDS와 HIRA 데이터를 수집한다. 이후 같은 자료를 다시 확인할 수 있도록 각 자료의 조회일과 버전도 함께 기록한다.
+    
+    2. 데이터 전처리
+    자료마다 다르게 표기된 성분명을 하나의 기준으로 통일한다. 중복된 값이나 결측값이 있는지도 확인한다. 약물 계열별 비교를 위해 각 성분에 ATC 분류를 연결한다.
+    
+    3. Q1. DUR과 Beers Criteria 비교
+    두 기준에 공통으로 포함된 성분과 한쪽에만 포함된 성분을 구분한다. 이후 약물 계열별로 어떤 차이가 있는지 비교한다.
+    
+    4. 국내 유통 여부 및 사용량 데이터 수집
+    Beers Criteria에만 포함된 성분이 국내에서 실제로 유통되는지 확인한다. 국내 유통이 확인된 성분은 HIRA 자료를 이용해 사용량 데이터를 수집한다.
+    
+    5. Q2. 국내 사용량 분석
+    국내에서 유통되는 Beers-only 성분의 최근 12개월 사용량을 비교한다. 사용량이 많은 성분이 무엇인지 확인하고, 해당 성분이 어떤 약물 계열에 속하는지도 함께 살펴본다.
+    
+    6. Q3. 두 기준의 차이 분석
+    DUR과 Beers Criteria에서 서로 일치하지 않는 항목을 확인한다. 이후 국내 유통 여부, 포함되는 성분의 범위, 투여경로, 용량, 투여기간 등 적용 조건의 차이를 중심으로 그 이유를 정리한다.
+    
+    7. 결과 검증 및 최종 정리
+    주요 분석 결과를 원자료와 다시 비교해 오류가 없는지 확인한다. 이후 분석 결과와 그래프, 표를 정리하고 결과에 대한 해석과 한계를 함께 작성한다.
 
 ## References
 
