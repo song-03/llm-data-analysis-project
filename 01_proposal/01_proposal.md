@@ -72,7 +72,9 @@
 모든 API key는 notebook 및 version control 외부에 보관한다. 수집 과정을 재현할 수 있도록 raw response, retrieval date, credential을 제외한 request parameter 및 source version을 기록한다.
 
 ## 5. 예상 분석 데이터 구조
+
 1. 테이블
+   
 | Table | 예상 규모 | 한 행의 기준 | 주요 용도 |
 |---|---:|---|---|
 | DUR 노인주의 성분표 | 약 100~120행 | DUR에 포함된 성분 1개 | 한국 DUR 성분 목록 정리 |
@@ -83,6 +85,7 @@
 | 불일치 검토표 | DUR-only 및 Beers-only 항목 수 | 불일치 성분 또는 권고사항 1개 | 두 기준의 차이 유형과 근거 정리 |
 
 2. 주요 변수
+   
 | 변수명 | 자료 형태 | 의미 및 활용 | 확인할 사항 |
 |---|---|---|---|
 | `source` | 범주형 | 자료 출처를 DUR 또는 Beers로 구분 | 출처 표기의 일관성 |
@@ -104,6 +107,7 @@
 | `evidence_note` | 문자형 | 불일치 판단에 사용한 근거 또는 출처 | 연구자의 추측과 공식 자료의 설명 구분 |
 
 3. 목룍 비교표 예시
+   
 | normalized_ingredient | in_dur | in_beers | comparison_group | is_approved_kr | atc_class |
 |---|---:|---:|---|---:|---|
 | 성분 A | 1 | 1 | 공통 | 1 | 약물군 A |
@@ -113,6 +117,7 @@
 (포함된 경우를 1 포함되지 않은 경우를 0 -> 이 값으로 공통, DUR-only, Beers-only로 구분하기)
 
 4. 사용량 자료 구성
+   
 | normalized_ingredient | hira_ingredient_code | year_month | claim_count | 확인 상태 |
 |---|---|---|---:|---|
 | 성분 C | 코드 C | 2025-05 | 1,000 | 확인 |
